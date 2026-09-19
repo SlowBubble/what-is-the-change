@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Speech Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; background: #f5f5f5; }
+    button { font-size: 24px; padding: 16px 32px; margin: 12px; cursor: pointer; }
+    #log { margin-top: 24px; font-size: 14px; color: #333; white-space: pre-wrap; background: #fff; padding: 16px; border: 1px solid #ccc; border-radius: 8px; min-height: 100px; }
+  </style>
+</head>
+<body>
+  <h1>Speech Synthesis Test</h1>
+  <p>Click a button to test. Check the log for what's happening.</p>
+
+  <button onclick="testSpeak()">1️⃣ Plain speak</button>
+  <button onclick="testResume()">2️⃣ cancel+resume+speak</button>
+  <button onclick="testDeferred()">3️⃣ setTimeout(0)</button>
+  <button onclick="testChunked()">4️⃣ keepalive trick</button>
+  <button onclick="listVoices()">📋 List Voices</button>
+  <button onclick="clearLog()">🗑 Clear</button>
+
+  <div id="log">Log output will appear here…</div>
+
+  <script>
+    const log = document.getElementById('log');
+
+    function appendLog(msg) {
+      log.textContent += '\n' + msg;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      log.textContent = '';
+    }
+
+    function makeUtt(text) {
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 1;
+      utt.onstart = () => appendLog('  ✓ onstart fired');
+      utt.onend   = () => appendLog('  ✓ onend fired — SPEECH WORKED!');
+      utt.onerror = (e) => appendLog('  ✗ onerror: ' + e.error);
+      return utt;
+    }
+
+    function testSpeak() {
+      appendLog('\n--- Method 1: plain speak ---');
+      appendLog('  paused=' + speechSynthesis.paused + ' speaking=' + speechSynthesis.speaking + ' pending=' + speechSynthesis.pending);
+      speechSynthesis.speak(makeUtt('Hello world, method one'));
+    }
+
+    function testResume() {
+      appendLog('\n--- Method 2: cancel + resume + speak ---');
+      speechSynthesis.cancel();
+      speechSynthesis.resume();
+      appendLog('  after cancel+resume: paused=' + speechSynthesis.paused + ' speaking=' + speechSynthesis.speaking);
+      speechSynthesis.speak(makeUtt('Hello world, method two'));
+    }
+
+    function testDeferred() {
+      appendLog('\n--- Method 3: speak inside setTimeout(0) ---');
+      setTimeout(() => {
+        appendLog('  inside timeout, paused=' + speechSynthesis.paused);
+        speechSynthesis.speak(makeUtt('Hello world, method three'));
+      }, 0);
+    }
+
+    function testChunked() {
+      appendLog('\n--- Method 4: resume() keepalive trick ---');
+      // Chrome bug workaround: resume() every 250ms while speaking
+      speechSynthesis.cancel();
+      const utt = makeUtt('Hello world, method four');
+      const keepAlive = setInterval(() => {
+        appendLog('  keepalive: paused=' + speechSynthesis.paused + ' speaking=' + speechSynthesis.speaking);
+        if (!speechSynthesis.speaking) { clearInterval(keepAlive); return; }
+        speechSynthesis.pause();
+        speechSynthesis.resume();
+      }, 250);
+      utt.onend = () => { clearInterval(keepAlive); appendLog('  ✓ onend fired — SPEECH WORKED!'); };
+      utt.onerror = (e) => { clearInterval(keepAlive); appendLog('  ✗ onerror: ' + e.error); };
+      speechSynthesis.speak(utt);
+    }
+
+    function listVoices() {
+      appendLog('\n--- Voices ---');
+      const voices = window.speechSynthesis.getVoices();
+      appendLog(voices.length + ' voice(s). First 5:');
+      voices.slice(0, 5).forEach((v, i) => appendLog('  [' + i + '] ' + v.name + ' | ' + v.lang + ' | default:' + v.default));
+    }
+
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        appendLog('onvoiceschanged — ' + window.speechSynthesis.getVoices().length + ' voices available');
+      };
+    }
+
+    appendLog('Page loaded. speechSynthesis present: ' + !!window.speechSynthesis);
+  </script>
+</body>
+</html>
