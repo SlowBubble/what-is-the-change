@@ -26,9 +26,8 @@
       box-shadow: 0 8px 40px rgba(0,0,0,0.15);
       max-height: 100vh;
     }
-    #settingsBtn {
+    #settingsBtn, #pinBtn {
       position: fixed;
-      top: 12px;
       left: 12px;
       width: 40px;
       height: 40px;
@@ -44,13 +43,16 @@
       z-index: 100;
       transition: background 0.15s;
     }
-    #settingsBtn:hover {
+    #settingsBtn { top: 12px; }
+    #pinBtn      { top: 60px; }
+    #settingsBtn:hover, #pinBtn:hover {
       background: rgba(255,255,255,1);
     }
   </style>
 </head>
 <body>
   <button id="settingsBtn" title="Edit settings">⚙</button>
+  <button id="pinBtn" title="Set fixed numbers">📌</button>
   <canvas id="gameCanvas"></canvas>
   <script src="modalUtil.js"></script>
   <script src="main.js"></script>

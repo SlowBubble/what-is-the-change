@@ -724,5 +724,78 @@ function openSettingsModal() {
 
 document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
 
+// ─── Pin modal ────────────────────────────────────────────────────────────────
+function openPinModal() {
+  const content = `
+    <h2 style="margin-bottom:16px;color:#1a1a2e;">Set Fixed Numbers</h2>
+    <p style="margin-bottom:20px;color:#5a6a8a;font-size:0.9em;">
+      Enter exact values for today and yesterday. The game will always use these numbers.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <label style="display:flex;align-items:center;gap:12px;font-size:1em;">
+        <span style="width:100px;color:#1a1a2e;">Today</span>
+        <input id="pinToday" type="number" min="1" value="${MAX1}"
+          style="width:100px;padding:8px;font-size:1em;border:1px solid #a0c4f1;border-radius:6px;text-align:center;" />
+      </label>
+      <label style="display:flex;align-items:center;gap:12px;font-size:1em;">
+        <span style="width:100px;color:#1a1a2e;">Yesterday</span>
+        <input id="pinYesterday" type="number" min="0" value="${MAX2}"
+          style="width:100px;padding:8px;font-size:1em;border:1px solid #a0c4f1;border-radius:6px;text-align:center;" />
+      </label>
+    </div>
+    <p id="pinError" style="color:#c0392b;min-height:1.4em;margin-top:12px;font-size:0.9em;"></p>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button id="pinApply" style="
+        padding:10px 24px;
+        background:#4a90d9;
+        color:white;
+        border:none;
+        border-radius:6px;
+        font-size:1em;
+        cursor:pointer;
+      ">Apply</button>
+    </div>
+  `;
+
+  const { modal, closeModal } = createModal(content, () => false);
+
+  const todayInput     = modal.querySelector('#pinToday');
+  const yesterdayInput = modal.querySelector('#pinYesterday');
+  const errorEl        = modal.querySelector('#pinError');
+
+  todayInput.focus();
+  todayInput.select();
+
+  function applyPin() {
+    errorEl.textContent = '';
+    const t = parseInt(todayInput.value, 10);
+    const y = parseInt(yesterdayInput.value, 10);
+
+    if (isNaN(t) || t < 1)  { errorEl.textContent = 'Today must be a positive integer.';          return; }
+    if (isNaN(y) || y < 0)  { errorEl.textContent = 'Yesterday must be a non-negative integer.';  return; }
+    if (t <= y)              { errorEl.textContent = 'Today must be greater than yesterday.';       return; }
+
+    const url = new URL(location.href);
+    url.searchParams.set('min1', t);
+    url.searchParams.set('max1', t);
+    url.searchParams.set('min2', y);
+    url.searchParams.set('max2', y);
+    url.searchParams.delete('max');
+    closeModal();
+    location.href = url.toString();
+  }
+
+  modal.querySelector('#pinApply').addEventListener('click', applyPin);
+
+  // Submit on Enter from either input
+  [todayInput, yesterdayInput].forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); applyPin(); }
+    });
+  });
+}
+
+document.getElementById('pinBtn').addEventListener('click', openPinModal);
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 draw();
