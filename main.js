@@ -2,7 +2,12 @@
 const params = new URLSearchParams(location.search);
 const MAX_ROUNDS = parseInt(params.get('rounds') ?? '10', 10);
 const LEVEL = parseInt(params.get('level') ?? '3', 10);
-const MAX_PENNIES = parseInt(params.get('max') ?? '20', 10); // Level 3: configurable max
+const MIN1 = parseInt(params.get('min1') ?? '0', 10);  // today min
+const MAX1 = parseInt(params.get('max1') ?? '20', 10); // today max
+const MIN2 = parseInt(params.get('min2') ?? '0', 10);  // yesterday min
+const MAX2 = parseInt(params.get('max2') ?? '20', 10); // yesterday max
+// Overall upper bound used for canvas layout
+const MAX_PENNIES = Math.max(MAX1, MAX2);
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas');
@@ -207,12 +212,12 @@ function newRound() {
   countStep = 0;
   showEquation = false;
 
-  // Pick two different numbers 0–MAX_PENNIES; bigger = today
-  let a = randInt(0, MAX_PENNIES);
-  let b = randInt(0, MAX_PENNIES);
-  while (b === a) b = randInt(0, MAX_PENNIES);
-  today = Math.max(a, b);
-  yesterday = Math.min(a, b);
+  // Pick today from [MIN1, MAX1] and yesterday from [MIN2, MAX2].
+  // Re-pick until today > yesterday (change must be positive).
+  do {
+    today     = randInt(MIN1, MAX1);
+    yesterday = randInt(MIN2, MAX2);
+  } while (today <= yesterday);
   change = today - yesterday;
 
   // countHighlights: flat array of penny indices to highlight during counting,
@@ -599,6 +604,125 @@ function roundRect(ctx, x, y, w, h, r, fill, stroke) {
   if (fill) ctx.fill();
   if (stroke) ctx.stroke();
 }
+
+// ─── Settings modal ───────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = { rounds: 10, level: 3, min1: 0, max1: 20, min2: 0, max2: 20 };
+
+function openSettingsModal() {
+  const current = {
+    rounds: MAX_ROUNDS,
+    level: LEVEL,
+    min1: MIN1,
+    max1: MAX1,
+    min2: MIN2,
+    max2: MAX2,
+  };
+
+  const jsonText = JSON.stringify(current, null, 2);
+
+  const content = `
+    <h2 style="margin-bottom:16px;color:#1a1a2e;">Game Settings</h2>
+    <p style="margin-bottom:12px;color:#5a6a8a;font-size:0.9em;">
+      Edit the JSON below and click <strong>Apply</strong> (or press Enter) to restart with new settings.
+    </p>
+    <textarea id="settingsJson" style="
+      width:100%;
+      height:180px;
+      font-family:monospace;
+      font-size:1em;
+      padding:10px;
+      border:1px solid #a0c4f1;
+      border-radius:6px;
+      resize:vertical;
+    ">${jsonText}</textarea>
+    <p id="settingsError" style="color:#c0392b;min-height:1.4em;margin-top:8px;font-size:0.9em;"></p>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button id="settingsApply" style="
+        padding:10px 24px;
+        background:#4a90d9;
+        color:white;
+        border:none;
+        border-radius:6px;
+        font-size:1em;
+        cursor:pointer;
+      ">Apply</button>
+      <button id="settingsReset" style="
+        padding:10px 24px;
+        background:#e8f0fe;
+        color:#1a1a2e;
+        border:1px solid #a0c4f1;
+        border-radius:6px;
+        font-size:1em;
+        cursor:pointer;
+      ">Reset to defaults</button>
+    </div>
+  `;
+
+  const { modal, closeModal } = createModal(content, () => false /* handled by button */);
+
+  const textarea = modal.querySelector('#settingsJson');
+  const errorEl  = modal.querySelector('#settingsError');
+
+  function applySettings() {
+    errorEl.textContent = '';
+    let parsed;
+    try {
+      parsed = JSON.parse(textarea.value);
+    } catch (e) {
+      errorEl.textContent = 'Invalid JSON: ' + e.message;
+      return;
+    }
+
+    const rounds = parseInt(parsed.rounds ?? DEFAULT_SETTINGS.rounds, 10);
+    const level  = parseInt(parsed.level  ?? DEFAULT_SETTINGS.level,  10);
+    const min1   = parseInt(parsed.min1   ?? DEFAULT_SETTINGS.min1,   10);
+    const max1   = parseInt(parsed.max1   ?? DEFAULT_SETTINGS.max1,   10);
+    const min2   = parseInt(parsed.min2   ?? DEFAULT_SETTINGS.min2,   10);
+    const max2   = parseInt(parsed.max2   ?? DEFAULT_SETTINGS.max2,   10);
+
+    if (isNaN(rounds) || rounds < 1)   { errorEl.textContent = '"rounds" must be a positive integer.'; return; }
+    if (isNaN(level)  || level  < 1)   { errorEl.textContent = '"level" must be a positive integer.';  return; }
+    if (isNaN(min1)   || min1   < 0)   { errorEl.textContent = '"min1" must be a non-negative integer.'; return; }
+    if (isNaN(max1)   || max1   < 1)   { errorEl.textContent = '"max1" must be a positive integer.';   return; }
+    if (isNaN(min2)   || min2   < 0)   { errorEl.textContent = '"min2" must be a non-negative integer.'; return; }
+    if (isNaN(max2)   || max2   < 1)   { errorEl.textContent = '"max2" must be a positive integer.';   return; }
+    if (min1 > max1) { errorEl.textContent = '"min1" must be ≤ "max1".'; return; }
+    if (min2 > max2) { errorEl.textContent = '"min2" must be ≤ "max2".'; return; }
+    if (max2 >= max1) { errorEl.textContent = '"max1" must be greater than "max2" so today can exceed yesterday.'; return; }
+
+    const url = new URL(location.href);
+    url.searchParams.set('rounds', rounds);
+    url.searchParams.set('level',  level);
+    url.searchParams.set('min1',   min1);
+    url.searchParams.set('max1',   max1);
+    url.searchParams.set('min2',   min2);
+    url.searchParams.set('max2',   max2);
+    // Remove legacy param if present
+    url.searchParams.delete('max');
+    closeModal();
+    location.href = url.toString();
+  }
+
+  modal.querySelector('#settingsApply').addEventListener('click', applySettings);
+
+  modal.querySelector('#settingsReset').addEventListener('click', () => {
+    textarea.value = JSON.stringify(DEFAULT_SETTINGS, null, 2);
+    errorEl.textContent = '';
+  });
+
+  // Allow Enter key inside textarea only when modifier key held (Ctrl/Cmd+Enter)
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      applySettings();
+    }
+  });
+
+  textarea.focus();
+  textarea.select();
+}
+
+document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 draw();

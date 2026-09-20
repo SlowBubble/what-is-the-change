@@ -26,10 +26,33 @@
       box-shadow: 0 8px 40px rgba(0,0,0,0.15);
       max-height: 100vh;
     }
+    #settingsBtn {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.85);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: background 0.15s;
+    }
+    #settingsBtn:hover {
+      background: rgba(255,255,255,1);
+    }
   </style>
 </head>
 <body>
+  <button id="settingsBtn" title="Edit settings">⚙</button>
   <canvas id="gameCanvas"></canvas>
+  <script src="modalUtil.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
